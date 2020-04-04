@@ -1,0 +1,1 @@
+covid_data <- read.csv('covid_data.csv')
