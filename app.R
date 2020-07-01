@@ -27,6 +27,10 @@ if(!require(shinyWidgets)) install.packages("shinyWidgets", repos = "http://cran
 if(!require(shinydashboard)) install.packages("shinydashboard", repos = "http://cran.us.r-project.org")
 if(!require(shinythemes)) install.packages("shinythemes", repos = "http://cran.us.r-project.org")
 if(!require(ggthemes)) install.packages("ggthemes", repos = "http://cran.us.r-project.org")
+if(!require(readr)) install.packages("readr", repos = "http://cran.us.r-project.org")
+if(!require(geojsonio)) install.packages("geojsonio", repos = "http://cran.us.r-project.org")
+if(!require(stringi)) install.packages("stringi", repos = "http://cran.us.r-project.org")
+
 
 # load and import data
 source("load_data.R")
@@ -64,6 +68,11 @@ clean_totals <- function(total_vec) {
   total_vec
 }
 
+na_fix <- function(x) {
+
+  replace(x, x == 0, NA)
+
+}
 
 # function to plot new COVID cases by date
 new_cases_plot <- function(case_data) {
@@ -77,7 +86,8 @@ new_cases_plot <- function(case_data) {
     scale_color_economist() + 
     theme_economist_white(gray_bg = F) +
     theme(legend.title = element_text(), legend.position = "top", plot.title = element_text(size=10),
-          plot.margin = margin(5, 12, 5, 5))
+          plot.margin = margin(5, 12, 5, 5)) + 
+    theme(axis.text.x = element_text(angle = 90)) 
   g1
 }
 
@@ -95,7 +105,9 @@ new_cases_by_county_plot = function(case_data, county) {
     ggtitle("Daily new cases") + 
     theme_economist_white(gray_bg = F) +
     theme(legend.title = element_text(), legend.position = "bottom", plot.title = element_text(size=10),
-          plot.margin = margin(5, 12, 5, 5))
+          plot.margin = margin(5, 12, 5, 5)) +
+    theme(axis.text.x = element_text(angle = 90)) +
+    theme(axis.text.x = element_text(angle = 90)) 
   g1
 }
 
@@ -122,10 +134,11 @@ cummulative_cases_plot = function(case_data) {
       labels = c('Active Cases', 'Recovered', 'Deaths')) +
     theme_economist_white(gray_bg = F) +
     theme(plot.title = element_text(size=10),
-          plot.margin = margin(5, 12, 5, 5))
+          plot.margin = margin(5, 12, 5, 5)) + 
+    theme(axis.text.x = element_text(angle = 90)) 
   
   ggplotly(g1) %>% layout(legend = list(x=0.5,
-                                        y=-0.15,
+                                        y=-0.25,
                                         orientation="h",
                                         xanchor="center",
                                         font = list(
@@ -144,21 +157,26 @@ log_cases_plot = function(case_data) {
   # fit to exponential model
   model <- lm(log10(total.cases[11:data_length]) ~ predict_dates[11:data_length], data=case_data)
   case_data$prediction <- double(data_length)
-  case_data$prediction[11:data_length] <- 10^(predict(model,case_data$date))
+  case_data$prediction[12:data_length] <- tail(10^(predict(model,case_data$date)), -1)
   
   case_data <- case_data %>% rename(c('Cases' = total.cases,
                                       'Recovered' = total.released,
                                       'Deaths' = total.deaths,
                                       'Predicted Cases' = prediction))
+  case_data <- case_data %>% mutate(across(c('Cases', 'Recovered', 'Deaths', 'Predicted Cases'), na_fix))
   total_data <- case_data %>% pivot_longer(c('Cases', 'Recovered', 'Deaths', 'Predicted Cases'), 
                                            names_prefix = 'total.', 
+                                           values_drop_na = TRUE,
                                            values_to='total')
+  # total_data <- case_data %>% pivot_longer(c('Cases', 'Recovered', 'Deaths', 'Predicted Cases'), 
+  #                                          names_prefix = 'total.', 
+  #                                          values_to='total')
   g1 = ggplot(total_data, aes(x=date, y=total, color=name)) + 
     geom_line() + 
     geom_point(data = total_data %>% filter(name %in% c('Cases','Recovered', 'Deaths'))) + 
     scale_x_date(date_breaks = "1 week", date_labels =  "%b %d") +
     scale_y_log10() +
-    annotation_logticks() + 
+#    annotation_logticks() +  not supported in plotly
     ylab("Log(Total)") +
     xlab("Date") +
     ggtitle("Case Curves") + 
@@ -167,10 +185,11 @@ log_cases_plot = function(case_data) {
       labels = c('Active Cases', 'Recovered', 'Deaths')) +
     theme_economist_white(gray_bg = F) +
     theme(plot.title = element_text(size=10),
-          plot.margin = margin(5, 12, 5, 5))
+          plot.margin = margin(5, 12, 5, 5)) + 
+    theme(axis.text.x = element_text(angle = 90)) 
   
   ggplotly(g1) %>% layout(legend = list(x=0.5,
-                                        y=-0.15,
+                                        y=-0.25,
                                         orientation="h",
                                         xanchor="center",
                                         font = list(
@@ -196,7 +215,8 @@ cummulative_cases_by_county_plot = function(case_data, county) {
     scale_fill_economist() + 
     theme_economist_white(gray_bg = F) +
     theme(legend.title = element_text(), legend.position = "left", plot.title = element_text(size=10),
-          plot.margin = margin(5, 12, 5, 5))
+          plot.margin = margin(5, 12, 5, 5)) +
+    theme(axis.text.x = element_text(angle = 90)) 
   
   g1
 }
@@ -223,9 +243,10 @@ new_tests_plot <- function(test_data) {
     scale_fill_economist() + 
     theme_economist_white(gray_bg = F) +
     theme(legend.title = element_text(), legend.position = "left", plot.title = element_text(size=10),
-          plot.margin = margin(5, 12, 5, 5))
+          plot.margin = margin(5, 12, 5, 5)) + 
+    theme(axis.text.x = element_text(angle = 90)) 
   ggplotly(g1) %>% layout(legend = list(x=0.5,
-                                        y=-0.15,
+                                        y=-0.25,
                                         orientation="h",
                                         xanchor="center",
                                         font = list(
@@ -268,9 +289,10 @@ cummulative_tests_plot = function(test_data) {
     theme_economist_white(gray_bg = F) +
     theme(
        plot.title = element_text(size=10),
-          plot.margin = margin(5, 12, 5, 5))
+          plot.margin = margin(5, 12, 5, 5)) + 
+    theme(axis.text.x = element_text(angle = 90)) 
   ggplotly(g1) %>% layout(legend = list(x=0.5,
-                                        y=-0.15,
+                                        y=-0.25,
                                         orientation="h",
                                         xanchor="center",
                                         font = list(
@@ -282,6 +304,8 @@ cummulative_tests_plot = function(test_data) {
 test_results_plot <- function(test_data) {
   selection_cols = c('date', 'positive.tests', 'negative.tests', 'inconcl.tests')
   test_data <- test_data %>% select(all_of(selection_cols))
+  test_data <- test_data %>% mutate(across(all_of(selection_cols), clean_totals))
+  
   test_data <-
     test_data %>% rename(
       c(
@@ -304,9 +328,10 @@ test_results_plot <- function(test_data) {
     ggtitle("Test Results") + 
     theme_economist_white(gray_bg = F) +
     theme(plot.title = element_text(size=10),
-          plot.margin = margin(5, 12, 5, 5))
+          plot.margin = margin(5, 12, 5, 5)) + 
+    theme(axis.text.x = element_text(angle = 90)) 
   ggplotly(g1) %>% layout(legend = list(x=0.5,
-                                        y=-0.15,
+                                        y=-0.25,
                                         orientation="h",
                                         xanchor="center",
                                         font = list(
@@ -524,7 +549,7 @@ ui <- navbarPage(
         )),
       ),
       tabPanel(
-        "Hawaii",
+        "Hawaii Island",
         class = "panel panel-default",
         top = 80,
         left = 20,
@@ -601,8 +626,7 @@ ui <- navbarPage(
       tags$br(),
       tags$a(href = "https://gisanddata.maps.arcgis.com/apps/opsdashboard/index.html#/bda7594740fd40299423467b48e9ecf6", "Johns Hopkins University COVID-19 dashboard"),
       tags$br(),
-      "The aim of this site is to complement the above resources by providing several interactive features not currently available elsewhere, including the timeline function,
-                        the ability to overlay past outbreaks, and an emphasis on normalised counts (per 100,000 individuals).",
+      "The aim of this site is to complement the above resources by providing Hawai'i specific information based on data provided by the Hawai'i state department of health.",
       tags$br(),
       tags$br(),
       tags$h4("Background"),
@@ -614,28 +638,23 @@ ui <- navbarPage(
       tags$br(),
       "In isolation, these headlines can be hard to interpret.
                         How fast is the virus spreading? Are efforts to control the disease working? How does the situation compare with previous epidemics?
-                        This site is updated daily based on data published by Johns Hopkins University.
+                        This site is updated daily based on data published by the Hawai'i department of health.
                         By looking beyond the headlines, we hope it is possible to get a deeper understanding of this unfolding pandemic.",
       tags$br(),
       tags$br(),
       tags$br(),
       tags$br(),
       tags$h4("Code"),
-      "Code and input data used to generate this Shiny mapping tool are available on ",
-      tags$a(href = "https://github.com/eparker12/nCoV_tracker", "Github."),
+      "Code and input data used to generate this Shiny website are available on ",
+      tags$a(href = "https://github.com/sthapa/R-covid-viz", "Github."),
       tags$br(),
       tags$br(),
       tags$h4("Sources"),
       tags$b("2019-COVID cases: "),
       tags$a(
-        href = "https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series",
-        "Johns Hopkins Center for Systems Science and Engineering github page,"
+        href = "https://covid19-hawaii.herokuapp.com/",
+        "Data collected from the Hawai'i State Department of Health,"
       ),
-      " with additional information from the ",
-      tags$a(href = "https://www.who.int/emergencies/diseases/novel-coronavirus-2019/situation-reports", "WHO's COVID-19 situation reports."),
-      " In previous versions of this site (up to 17th March 2020), updates were based solely on the WHO's situation reports.",
-      tags$br(),
-      tags$br(),
       tags$br(),
       tags$h4("Authors"),
       "Suchandra Thapa, Code for Hawaiʻi",
